@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hermes — Living Architecture</title>
+<style>
+  :root{
+    --bg:#0e0f13; --panel:#14161c; --panel-2:#171a21; --line:#2a2d36; --line-2:#23252d;
+    --ink:#e7e7ea; --muted:#9aa1ad; --faint:#6b7280; --accent:#2d6cdf;
+    --k-person:#c9d1d9; --k-surface:#4c8dff; --k-edge:#f6821f; --k-brain:#a371f7;
+    --k-service:#2bb3ad; --k-store:#d9a441; --k-route:#6ea8fe; --k-external:#8b949e;
+    --t-open:#3fb950; --t-private:#d9a441; --t-confidential:#f0533f;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:radial-gradient(1200px 700px at 78% -10%, #16202f 0%, var(--bg) 55%) fixed;
+    color:var(--ink); font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    display:flex; flex-direction:column; min-height:100%;
+  }
+  a{color:var(--k-surface);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+  /* ---- header ---- */
+  header{display:flex;align-items:center;gap:18px;padding:14px 22px;border-bottom:1px solid var(--line-2);flex-wrap:wrap}
+  .brand{display:flex;align-items:baseline;gap:12px}
+  .brand .logo{font-weight:800;letter-spacing:.32em;font-size:18px}
+  .brand .logo b{color:var(--accent)}
+  .brand .tag{color:var(--muted);font-size:12.5px;max-width:46ch}
+  .meta-chips{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .chip{font-size:11.5px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:4px 10px;white-space:nowrap}
+  .chip b{color:var(--ink);font-weight:600}
+  .chip.mode-internal{border-color:#2c3a55;color:#9cc0ff}
+  .chip.mode-public{border-color:#1f5132;color:#6ee7a0}
+
+  /* ---- tabs ---- */
+  nav{display:flex;gap:4px;padding:10px 18px 0;flex-wrap:wrap;border-bottom:1px solid var(--line-2)}
+  .tab{appearance:none;background:transparent;border:0;border-bottom:2px solid transparent;color:var(--muted);
+       font:600 13px/1 system-ui;padding:9px 14px 11px;cursor:pointer;border-radius:6px 6px 0 0;display:flex;gap:8px;align-items:center}
+  .tab .n{color:var(--faint);font-weight:700;font-size:11px}
+  .tab:hover{color:var(--ink);background:#ffffff08}
+  .tab.active{color:var(--ink);border-bottom-color:var(--accent)}
+
+  /* ---- main ---- */
+  main{flex:1;display:grid;grid-template-columns:1fr 350px;gap:0;min-height:0}
+  #stagewrap{position:relative;min-width:0;display:flex;flex-direction:column}
+  .blurb{padding:12px 20px 6px;color:var(--muted);font-size:13px;max-width:92ch}
+  .blurb b{color:var(--ink);font-weight:600}
+  #stage{flex:1;min-height:0;padding:6px 14px 16px}
+  svg.canvas{width:100%;height:100%;display:block}
+
+  /* nodes — highlight is driven by CSS classes on a stable DOM (no repaint on hover) */
+  .node{cursor:pointer}
+  .node .box{fill:var(--panel);stroke:var(--line);stroke-width:1.2;transition:stroke .12s,stroke-width .12s}
+  .node text{pointer-events:none;font-family:system-ui}
+  .node .lbl{font-weight:650;font-size:14px;fill:var(--ink)}
+  .node .sub{font-size:11px;fill:var(--muted)}
+  .node .port{font-size:10.5px;font-weight:700;fill:var(--nc)}
+  .node .accent{fill:var(--nc)}
+  svg.focusing .node{opacity:.38;transition:opacity .12s}
+  svg.focusing .node.active{opacity:1}
+  .node.active .box{stroke:var(--nc);stroke-width:1.8}
+  .node.sel .box{stroke:var(--nc);stroke-width:2.6}
+  .frame-box{fill:#ffffff03;stroke:var(--line);stroke-width:1.2;stroke-dasharray:3 5}
+  .frame-lbl{fill:var(--faint);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+  .divider{stroke:var(--t-confidential);stroke-width:1.3;stroke-dasharray:2 6;opacity:.7}
+  .divider-lbl{fill:var(--t-confidential);font-size:11px;font-weight:700;opacity:.85}
+  .edge{fill:none;opacity:.55;transition:opacity .12s,stroke-width .12s}
+  .arrow{opacity:.55;transition:opacity .12s}
+  .edge-lbl{fill:var(--muted);font-size:10.5px;font-weight:600;opacity:.85}
+  @keyframes march{to{stroke-dashoffset:-22}}
+  .edge.live{stroke-dasharray:5 5;animation:march 1s linear infinite}
+  svg.focusing .edge,svg.focusing .arrow{opacity:.1}
+  svg.focusing .edge-lbl{opacity:0}
+  svg.focusing .edge.on{opacity:1;stroke-width:2.3}
+  svg.focusing .arrow.on,svg.focusing .edge-lbl.on{opacity:1}
+
+  /* ---- detail panel ---- */
+  #panel{border-left:1px solid var(--line-2);background:linear-gradient(180deg,#12141a,#101218);
+         padding:18px 18px 24px;overflow:auto}
+  .p-eyebrow{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700}
+  .p-title{font-size:18px;font-weight:750;margin:6px 0 2px;display:flex;align-items:center;gap:9px}
+  .kdot{width:10px;height:10px;border-radius:3px;flex:none}
+  .p-kind{font-size:12px;color:var(--muted)}
+  .p-desc{color:#cdd3dd;font-size:13px;margin:12px 0 14px}
+  .facts{display:grid;grid-template-columns:auto 1fr;gap:7px 12px;font-size:12.5px;margin:0 0 14px}
+  .facts dt{color:var(--faint);white-space:nowrap}
+  .facts dd{margin:0;color:var(--ink);word-break:break-word}
+  .facts dd code{background:#ffffff0a;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:11.5px}
+  .why{border-top:1px solid var(--line-2);padding-top:12px;margin-top:4px}
+  .why .d{display:inline-block;font-weight:700;color:#c9b6ff;font-size:12px}
+  .why p{color:var(--muted);font-size:12.5px;margin:5px 0 0}
+  .legend{display:flex;flex-direction:column;gap:7px;margin-top:10px}
+  .legend .row{display:flex;gap:9px;align-items:center;font-size:12.5px;color:var(--muted)}
+  .hint{color:var(--faint);font-size:12px;margin-top:16px;border-top:1px dashed var(--line);padding-top:12px}
+
+  /* ---- flows (L3) ---- */
+  #flows{padding:8px 20px 22px;overflow:auto}
+  .flowpick{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 18px}
+  .fbtn{appearance:none;border:1px solid var(--line);background:#ffffff06;color:var(--muted);border-radius:999px;
+        padding:7px 14px;font:600 12.5px/1 system-ui;cursor:pointer}
+  .fbtn:hover{color:var(--ink);border-color:#3a4458}
+  .fbtn.active{color:#fff;border-color:transparent}
+  .chain{display:flex;align-items:stretch;flex-wrap:wrap;gap:0}
+  .step{position:relative;min-width:150px;max-width:210px;background:var(--panel);border:1px solid var(--line);
+        border-left-width:4px;border-radius:10px;padding:12px 13px;transition:transform .2s,box-shadow .2s,border-color .2s}
+  .step .s-lbl{font-weight:700;font-size:13.5px}
+  .step .s-sub{color:var(--muted);font-size:11.5px;margin-top:3px}
+  .step.on{transform:translateY(-3px);box-shadow:0 8px 24px #0008}
+  .conn{display:flex;align-items:center;color:var(--faint);font-size:20px;padding:0 6px;align-self:center}
+  .conn.on{color:var(--ink)}
+  .flow-foot{color:var(--faint);font-size:12px;margin-top:16px}
+
+  /* ---- reference ---- */
+  #reference{grid-column:1 / -1;padding:14px 22px 40px;overflow:auto}
+  .ref-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:22px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .card h3{margin:0 0 10px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .card .kv{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:12.5px}
+  .card .kv dt{color:var(--faint)}
+  .tier-row{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;margin:8px 0}
+  .tier-row .dot{width:10px;height:10px;border-radius:3px;margin-top:4px;flex:none}
+  .tier-row b{display:block}
+  h2.ref{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:6px 0 10px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:26px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line-2);vertical-align:top}
+  th{color:var(--faint);font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+  td code{background:#ffffff0a;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:11.5px}
+  tr:hover td{background:#ffffff04}
+  .pill{font-size:10.5px;font-weight:700;border-radius:5px;padding:1px 7px}
+
+  /* ---- footer ---- */
+  footer{border-top:1px solid var(--line-2);padding:11px 22px;color:var(--faint);font-size:11.5px;display:flex;gap:14px;flex-wrap:wrap}
+  footer b{color:var(--muted)}
+
+  #empty{margin:auto;text-align:center;color:var(--muted);padding:60px}
+  #empty code{display:inline-block;background:#ffffff0a;border:1px solid var(--line);border-radius:6px;padding:4px 10px;margin-top:10px}
+
+  @media(max-width:880px){
+    main{grid-template-columns:1fr}
+    #panel{border-left:0;border-top:1px solid var(--line-2);max-height:none}
+    .brand .tag{display:none}
+  }
+</style>
+</head>
+<body>
+<script>
+const MODEL = {"meta":{"project":"Hermes","tagline":"A personal AI second brain — one orchestrator, one box, every Claude surface.","repo":"AceP2317","boxIp":"203.0.113.10","email":"operator@example.com","domain":"example.com","decisions":{"D1":"Knowledge layer = a remote MCP connector behind Cloudflare Access","D2":"Vault sync: PC repo canonical, GitHub the substrate, rebase-halt (never clobber)","D3":"SSH over Cloudflare Access; inbound port 22 closed (zero inbound ports)","D4":"Orchestrator runtime = Claude Code, run on the box","D5":"Inference funded by the personal Claude Max 20 subscription","D6":"First interface = a web chat page at hermes. (the doorways model)","D7":"Business separation: a separate business runs on its own box","D8":"Capability scope grows deliberately (vault + read-only web search today)","D9":"Chat persistence: vault-backed conversation store, cross-device via the bridge","D10":"Vault write-guardrail: confine each surface's writes by OS permissions — one door per surface","D11":"The brain holds all of Ian; privacy is enforced at the perimeter by tiers","D12":"On-box never-emit wall made structural: two lane-isolated librarian passes"},"generated":"2026-06-26T16:42:59.647Z","mode":"public","tunnelId":"00000000-0000-0000-0000-000000000000","host":{"provider":"Cloud VPS provider","server":"CPX22","specs":"2 vCPU · 4 GB RAM · 80 GB SSD · +4 GB swap","region":"EU-Central region","os":"Ubuntu 26.04 LTS","posture":"Zero inbound ports — reached only through the Cloudflare Tunnel (outbound QUIC)."},"counts":{"services":11,"timers":5,"paths":1,"doors":4,"tiers":3}},"tiers":[{"id":"tier-open","label":"Open","tone":"open","path":"Hermes/Notes · Sources · Maps","rule":"Personal, non-sensitive. Syncs to GitHub in the clear; readable by all surfaces."},{"id":"tier-private","label":"Private","tone":"private","path":"Hermes/Private/","rule":"Personal-sensitive. Encrypted into GitHub via git-crypt (GitHub sees ciphertext)."},{"id":"tier-confidential","label":"Confidential","tone":"confidential","path":"Confidential/","rule":"Raw work / employer artifacts. git-ignored, gocryptfs at rest, owner-only, never leaves the box. Connector-blind."}],"mcpRoots":[{"name":"vault","root":"Hermes","pkg":"@modelcontextprotocol/server-filesystem@2026.1.14"},{"name":"confidential","root":"Confidential","pkg":"@modelcontextprotocol/server-filesystem@2026.1.14"}],"nodes":{"ian":{"id":"ian","kind":"person","label":"Ian","sub":"operator","desc":"The single human. Reaches the brain through whichever Claude surface is at hand; identity gated at the Cloudflare edge."},"surface-code":{"id":"surface-code","kind":"surface","label":"Claude Code","sub":"PC · CLI","decision":"D1","port":null,"desc":"Claude Code on the PC, connected to the shared vault MCP connector with a Cloudflare Access service token. Reads the whole vault, writes Hermes/."},"surface-desktop":{"id":"surface-desktop","kind":"surface","label":"Claude Desktop","sub":"PC · app","decision":"D10","desc":"Claude Desktop on the PC, via mcp-remote + its own service token, through a dedicated door confined to Hermes/Desktop/."},"surface-web":{"id":"surface-web","kind":"surface","label":"claude.ai","sub":"web / mobile","decision":"D1","desc":"The claude.ai web/mobile app, connected as a custom connector through a self-hosted OAuth 2.1 door (no Cloudflare Access app — OAuth is the gate; the #410 fix). Writes Hermes/Web/."},"surface-chat":{"id":"surface-chat","kind":"surface","label":"Web chat","sub":"browser","decision":"D6","desc":"The browser chat page at hermes. behind Access. Talks to the Node bridge, which spawns claude -p against the vault."},"cloudflare":{"id":"cloudflare","kind":"edge","label":"Cloudflare","sub":"Tunnel + Access","decision":"D3","desc":"The only way in. An outbound-only cloudflared tunnel terminates at the Cloudflare edge; Cloudflare Access gates every hostname (email one-time-PIN for people, service tokens for connectors). The box has zero inbound ports open."},"anthropic":{"id":"anthropic","kind":"external","label":"Anthropic","sub":"Claude Max 20","decision":"D5","desc":"Inference. The on-box Claude Code authenticates to the operator's personal Claude Max 20 subscription via a headless OAuth token; default model Opus, used on-demand."},"github":{"id":"github","kind":"external","label":"GitHub","sub":"vault backup","decision":"D2","desc":"Backup + cross-device substrate for the vault. Open syncs in the clear, Private as git-crypt ciphertext; Confidential never leaves the box."},"claude-cli":{"id":"claude-cli","kind":"brain","label":"claude -p","sub":"the orchestrator","decision":"D4","desc":"Claude Code as a one-shot process — the brain. Spawned by the bridge per request and by the librarian per pass. Reads the whole vault, writes through tier-scoped MCP tools."},"vault":{"id":"vault","kind":"store","label":"Obsidian vault","sub":"~/claude-brain","decision":"D1","desc":"The durable knowledge layer — a git repo of Markdown, served to the orchestrator over MCP. Holds all of Ian, segregated into three tiers."},"hermes-bridge":{"id":"hermes-bridge","kind":"service","label":"Hermes bridge","sub":"web doorway","port":8787,"decision":"D6","desc":"Pure-Node web doorway. Serves the chat UI and POST /chat → claude -p (vault-scoped, Opus/xhigh, WebSearch). Persists each conversation to the encrypted Confidential tier.","user":"ian","type":"simple","execStart":"/home/ian/.nvm/versions/node/v24.17.0/bin/node /home/ian/hermes-bridge/hermes-bridge.js","requires":["hermes-confidential-mount.service"],"unitFile":"hermes-bridge.service","schedule":"always-on","parsedDescription":"Hermes bridge — web doorway to the Hermes brain (Claude Code)"},"hermes-vault-mcp":{"id":"hermes-vault-mcp","kind":"service","label":"Vault MCP — shared","sub":"Code + Desktop","decision":"D1","desc":"Streamable-HTTP MCP server (supergateway wrapping the official filesystem server). The shared connector for Claude Code + Desktop on the PC. Runs as low-priv hermes-mcp; writes confined to Hermes/.","user":"hermes-mcp","type":"simple","port":8788,"execStart":"/home/ian/hermes-vault-mcp/run.sh","requires":[],"unitFile":"hermes-vault-mcp.service","schedule":"always-on","parsedDescription":"Hermes vault MCP — remote (Streamable HTTP) MCP server for the Obsidian vault"},"hermes-vault-desktop-mcp":{"id":"hermes-vault-desktop-mcp","kind":"service","label":"Vault MCP — Desktop","sub":"Desktop door","decision":"D10","desc":"Claude Desktop's dedicated door. Same server image, own low-priv user (hermes-desktop) and write folder (Hermes/Desktop/). The per-surface door template, proven.","user":"hermes-desktop","type":"simple","port":8789,"execStart":"/home/ian/hermes-vault-mcp/run.sh","requires":[],"unitFile":"hermes-vault-desktop-mcp.service","schedule":"always-on","parsedDescription":"Hermes vault MCP — Claude Desktop door (Streamable HTTP; writes confined to Hermes/Desktop/)"},"hermes-vault-web-mcp":{"id":"hermes-vault-web-mcp","kind":"service","label":"Vault MCP — web","sub":"web · inner","decision":"D10","desc":"Inner MCP server for the claude.ai web door. Localhost-only; reached only via the OAuth layer. Low-priv hermes-web; writes confined to Hermes/Web/.","user":"hermes-web","type":"simple","port":8790,"execStart":"/home/ian/hermes-vault-mcp/run.sh","requires":[],"unitFile":"hermes-vault-web-mcp.service","schedule":"always-on","parsedDescription":"Hermes vault MCP — claude.ai web door, inner MCP server (Streamable HTTP; writes confined to Hermes/Web/)"},"hermes-vault-web-oauth":{"id":"hermes-vault-web-oauth","kind":"service","label":"Web OAuth layer","sub":"public gate","port":8791,"decision":"D1","desc":"Self-hosted OAuth 2.1 authorization server (PKCE, short-TTL JWTs). The public edge for claude.ai; proxies authed /mcp to :8790. Runs as its own user with NO vault access (defense in depth). Recovers the #410 header Cloudflare Access omits.","user":"hermes-web-oauth","type":"simple","execStart":"/home/ian/.nvm/versions/node/v24.17.0/bin/node /home/ian/hermes-vault-oauth/oauth-layer.js","requires":[],"unitFile":"hermes-vault-web-oauth.service","schedule":"always-on","parsedDescription":"Hermes vault — claude.ai web door, PUBLIC OAuth 2.1 layer (:8791; proxies authed /mcp to :8790)"},"hermes-librarian":{"id":"hermes-librarian","kind":"service","label":"Librarian — poll","sub":"oneshot · Opus/xhigh","decision":"D11","desc":"Autonomous curation. Every 2 min (and nightly) it routes each Inbox drop to a tier, writes linked notes + Maps, dedupes via a ledger, and obeys the never-emit rule. Free when idle.","user":"ian","type":"oneshot","execStart":"/home/ian/.local/bin/hermes-librarian.sh once","requires":["hermes-confidential-mount.service"],"unitFile":"hermes-librarian.service","schedule":"every 2min · 03:30 UTC daily","parsedDescription":"Hermes Librarian — nightly curation pass"},"hermes-librarian-drain":{"id":"hermes-librarian-drain","kind":"service","label":"Librarian — drain","sub":"oneshot · burst","decision":"D11","desc":"Burst mode: drains the inbox until both lanes are empty. Triggered on Inbox change and for bulk imports.","user":"ian","type":"oneshot","execStart":"/home/ian/.local/bin/hermes-librarian.sh drain","requires":["hermes-confidential-mount.service"],"unitFile":"hermes-librarian-drain.service","schedule":"on change: Hermes/Inbox","parsedDescription":"Hermes Librarian — drain the inbox (burst)"},"hermes-vault-sync":{"id":"hermes-vault-sync","kind":"service","label":"Vault sync","sub":"oneshot · 5 min","decision":"D2","desc":"Two-way GitHub sync: commit the brain's writes → git pull --rebase --autostash → push. Halts (never clobbers) on a true conflict.","user":"ian","type":"oneshot","execStart":"/home/ian/.local/bin/vault-sync.sh","requires":[],"unitFile":"hermes-vault-sync.service","schedule":"every 5min","parsedDescription":"Hermes vault sync (commit brain writes, converge with GitHub)"},"hermes-confidential-mount":{"id":"hermes-confidential-mount","kind":"service","label":"Confidential mount","sub":"oneshot · gocryptfs","decision":"D11","desc":"Mounts the encrypted-at-rest Confidential tier at boot. The bridge and librarian Require= it, so they refuse to start unmounted.","user":"ian","type":"oneshot","execStart":"/usr/bin/gocryptfs -passfile /home/ian/.config/hermes/confidential.key /home/ian/.confidential-cipher /home/ian/claude-brain/Confidential","requires":[],"unitFile":"hermes-confidential-mount.service","schedule":"always-on","parsedDescription":"Mount the encrypted Confidential tier (gocryptfs)"},"hermes-mcp-reap":{"id":"hermes-mcp-reap","kind":"service","label":"MCP reaper","sub":"oneshot · 01:30 ET","decision":"D10","desc":"Nightly restart of the remote connectors to reclaim leaked filesystem-server children (a supergateway quirk). A redundant backstop since the source-level session fix.","user":"root","type":"oneshot","execStart":"-/usr/bin/systemctl restart hermes-vault-mcp.service ; -/usr/bin/systemctl restart hermes-vault-desktop-mcp.service","requires":[],"unitFile":"hermes-mcp-reap.service","schedule":"01:30 America/New_York daily","parsedDescription":"Hermes — reap leaked MCP filesystem children by restarting the remote connectors"},"hermes-firewall-audit":{"id":"hermes-firewall-audit","kind":"service","label":"Firewall audit","sub":"oneshot · 01:30 ET","decision":"D11","desc":"Nightly tripwire over the synced (Open + Private) tiers + logs. Writes a paths-and-counts-only verdict and exits non-zero on any Tier-1 marker hit.","user":"ian","type":"oneshot","execStart":"/home/ian/.local/bin/firewall-audit.sh nightly","requires":[],"unitFile":"hermes-firewall-audit.service","schedule":"01:30 America/New_York daily","parsedDescription":"Hermes firewall audit — nightly tripwire over the synced (Open + Private) tiers"},"route-chat":{"id":"route-chat","kind":"route","label":"POST /chat","sub":"→ claude -p","decision":"D6","desc":"Spawns claude -p with the message, --allowedTools 'mcp__vault WebSearch', cwd = vault. Returns the reply + a conversationId; resumes sessions with --resume."},"route-conv":{"id":"route-conv","kind":"route","label":"/conversation(s)","sub":"GET · DELETE","decision":"D9","desc":"Lists, loads and deletes past chats. Backed by Markdown files (frontmatter + comment-delimited turns)."},"route-upload":{"id":"route-upload","kind":"route","label":"POST /upload/*","sub":"chunked import","decision":"D11","desc":"Chunked export upload (init/chunk/finish/abort) that lands a dropped export into the inbox for the librarian to ingest."},"conv-store":{"id":"conv-store","kind":"store","label":"Conversations","sub":"Confidential/Conversations/","accent":"confidential","decision":"D9","desc":"Every conversation auto-saved as Markdown inside the encrypted Confidential tier — box-only, never synced."},"inbox-open":{"id":"inbox-open","kind":"store","label":"Open/Private lane","sub":"Hermes/Inbox/","accent":"open","decision":"D12","desc":"Everyday, non-sensitive drops. Read by Pass A via mcp__vault."},"inbox-conf":{"id":"inbox-conf","kind":"store","label":"Sensitive lane","sub":"Confidential/_inbox/","accent":"confidential","decision":"D12","desc":"Raw work / employer drops (big exports pre-split here). Read by Pass B via mcp__confidential."},"pass-a":{"id":"pass-a","kind":"route","label":"Pass A","sub":"cwd Hermes/ · blind to Confidential","decision":"D12","desc":"The Open/Private curation lane. Structurally cannot read or write Confidential — it has only mcp__vault, rooted at Hermes/."},"pass-b":{"id":"pass-b","kind":"route","label":"Pass B","sub":"cwd Confidential/ · can't touch Hermes/","accent":"confidential","decision":"D12","desc":"The Confidential curation lane. Has only mcp__confidential, rooted at Confidential/. Its ledger and log are box-only, so the synced-log leak class is structurally impossible."},"mcp-vault":{"id":"mcp-vault","kind":"route","label":"mcp__vault","sub":"root: Hermes/","accent":"open","decision":"D12","desc":"Tier-scoped write tool for Open + Private. Physically cannot touch Confidential, Identity, or .git."},"mcp-confidential":{"id":"mcp-confidential","kind":"route","label":"mcp__confidential","sub":"root: Confidential/","accent":"confidential","decision":"D12","desc":"Tier-scoped write tool for Confidential. Physically cannot touch Hermes/ or anything synced."},"promoter":{"id":"promoter","kind":"route","label":"Declassification promoter","sub":"marker-gated","decision":"D12","desc":"The only audited path from Confidential up to synced. Pass B proposes specifics-free notes; a deterministic matcher promotes clean ones and holds any that bear a Tier-1 marker."},"tier-open":{"id":"tier-open","kind":"tier","label":"Open","sub":"Hermes/Notes · Sources · Maps","accent":"open","desc":"Personal, non-sensitive. Syncs to GitHub in the clear; readable by all surfaces.","decision":"D11"},"tier-private":{"id":"tier-private","kind":"tier","label":"Private","sub":"Hermes/Private/","accent":"private","desc":"Personal-sensitive. Encrypted into GitHub via git-crypt (GitHub sees ciphertext).","decision":"D11"},"tier-confidential":{"id":"tier-confidential","kind":"tier","label":"Confidential","sub":"Confidential/","accent":"confidential","desc":"Raw work / employer artifacts. git-ignored, gocryptfs at rest, owner-only, never leaves the box. Connector-blind.","decision":"D11"}},"levels":[{"id":"L0","title":"Context","mode":"graph","viewBox":"0 0 1280 700","blurb":"The 30-second view: one operator, four Claude surfaces, one identity-gated edge, one box holding the brain and its knowledge.","frames":[{"x":824,"y":60,"w":416,"h":580,"label":"The box (Hermes)"}],"place":[{"ref":"ian","x":40,"y":300,"w":150,"h":92},{"ref":"surface-code","x":250,"y":110,"w":210,"h":56},{"ref":"surface-desktop","x":250,"y":196,"w":210,"h":56},{"ref":"surface-web","x":250,"y":282,"w":210,"h":56},{"ref":"surface-chat","x":250,"y":368,"w":210,"h":56},{"ref":"anthropic","x":545,"y":92,"w":190,"h":56},{"ref":"cloudflare","x":545,"y":244,"w":190,"h":130},{"ref":"github","x":545,"y":470,"w":190,"h":56},{"ref":"claude-cli","x":868,"y":240,"w":220,"h":88},{"ref":"vault","x":868,"y":420,"w":220,"h":130}],"edges":[{"from":"ian","to":"surface-code","kind":"uses"},{"from":"ian","to":"surface-desktop","kind":"uses"},{"from":"ian","to":"surface-web","kind":"uses"},{"from":"ian","to":"surface-chat","kind":"uses"},{"from":"surface-code","to":"cloudflare","kind":"https"},{"from":"surface-desktop","to":"cloudflare","kind":"https"},{"from":"surface-web","to":"cloudflare","kind":"https"},{"from":"surface-chat","to":"cloudflare","kind":"https"},{"from":"cloudflare","to":"claude-cli","kind":"tunnel","label":"Tunnel + Access"},{"from":"claude-cli","to":"vault","kind":"rw","label":"read all · write Hermes/"},{"from":"claude-cli","to":"anthropic","kind":"inference","dashed":true,"label":"inference"},{"from":"vault","to":"github","kind":"sync","dashed":true,"label":"Open / Private"}]},{"id":"L1","title":"Containers","mode":"graph","viewBox":"0 0 1320 760","blurb":"Inside the box: five doorways (each its own port + OS user), the orchestrator, the three-tier vault, and the autonomy/upkeep services. Hover any node to light up what it touches.","frames":[{"x":150,"y":50,"w":1040,"h":690,"label":"Cloud VPS CPX22 · Ubuntu 26.04 · EU-Central"},{"x":492,"y":296,"w":300,"h":240,"label":"Obsidian vault (claude-brain)"}],"place":[{"ref":"cloudflare","x":18,"y":250,"w":112,"h":190},{"ref":"anthropic","x":1208,"y":96,"w":104,"h":84},{"ref":"github","x":1208,"y":300,"w":104,"h":84},{"ref":"hermes-bridge","x":180,"y":110,"w":224,"h":56},{"ref":"hermes-vault-mcp","x":180,"y":180,"w":224,"h":56},{"ref":"hermes-vault-desktop-mcp","x":180,"y":250,"w":224,"h":56},{"ref":"hermes-vault-web-mcp","x":180,"y":320,"w":224,"h":56},{"ref":"hermes-vault-web-oauth","x":180,"y":390,"w":224,"h":56},{"ref":"claude-cli","x":512,"y":120,"w":256,"h":92},{"ref":"tier-open","x":512,"y":332,"w":260,"h":50},{"ref":"tier-private","x":512,"y":390,"w":260,"h":50},{"ref":"tier-confidential","x":512,"y":448,"w":260,"h":50},{"ref":"hermes-librarian","x":884,"y":110,"w":252,"h":56},{"ref":"hermes-librarian-drain","x":884,"y":180,"w":252,"h":56},{"ref":"hermes-vault-sync","x":884,"y":250,"w":252,"h":56},{"ref":"hermes-confidential-mount","x":884,"y":320,"w":252,"h":56},{"ref":"hermes-mcp-reap","x":884,"y":390,"w":252,"h":56},{"ref":"hermes-firewall-audit","x":884,"y":460,"w":252,"h":56}],"edges":[{"from":"cloudflare","to":"hermes-bridge","kind":"tunnel"},{"from":"cloudflare","to":"hermes-vault-mcp","kind":"tunnel"},{"from":"cloudflare","to":"hermes-vault-desktop-mcp","kind":"tunnel"},{"from":"cloudflare","to":"hermes-vault-web-oauth","kind":"tunnel"},{"from":"hermes-vault-web-oauth","to":"hermes-vault-web-mcp","kind":"https","label":"proxy"},{"from":"hermes-bridge","to":"claude-cli","kind":"spawn","label":"spawns"},{"from":"hermes-vault-mcp","to":"vault","kind":"rw"},{"from":"hermes-vault-desktop-mcp","to":"vault","kind":"rw"},{"from":"hermes-vault-web-mcp","to":"vault","kind":"rw"},{"from":"claude-cli","to":"tier-open","kind":"rw"},{"from":"claude-cli","to":"anthropic","kind":"inference","dashed":true},{"from":"hermes-librarian","to":"tier-open","kind":"rw","dashed":true},{"from":"hermes-librarian-drain","to":"tier-confidential","kind":"rw","dashed":true},{"from":"hermes-confidential-mount","to":"tier-confidential","kind":"mount","label":"mounts"},{"from":"hermes-vault-sync","to":"github","kind":"sync","dashed":true},{"from":"hermes-mcp-reap","to":"hermes-vault-mcp","kind":"ops","dashed":true},{"from":"hermes-mcp-reap","to":"hermes-vault-desktop-mcp","kind":"ops","dashed":true},{"from":"hermes-firewall-audit","to":"tier-private","kind":"scan","dashed":true,"label":"scans"}]},{"id":"L2","title":"Components","mode":"graph","viewBox":"0 0 1280 640","blurb":"Two machines up close: the bridge's request routes, and the librarian's two lane-isolated passes — the never-emit wall in hardware.","frames":[{"x":40,"y":64,"w":560,"h":314,"label":"Bridge — web doorway internals (D6 · D9)"},{"x":650,"y":64,"w":590,"h":548,"label":"Librarian — two-pass never-emit wall (D12)"}],"dividers":[{"x":650,"y":352,"w":590,"label":"⟂  never-emit wall — no single tool spans tiers"}],"place":[{"ref":"hermes-bridge","x":70,"y":110,"w":180,"h":56},{"ref":"route-chat","x":300,"y":98,"w":268,"h":46},{"ref":"route-conv","x":300,"y":154,"w":268,"h":46},{"ref":"route-upload","x":300,"y":210,"w":268,"h":46},{"ref":"claude-cli","x":70,"y":288,"w":180,"h":56},{"ref":"conv-store","x":300,"y":290,"w":268,"h":46},{"ref":"inbox-open","x":690,"y":102,"w":250,"h":46},{"ref":"inbox-conf","x":690,"y":160,"w":250,"h":46},{"ref":"pass-a","x":690,"y":238,"w":250,"h":66},{"ref":"mcp-vault","x":980,"y":248,"w":248,"h":46},{"ref":"pass-b","x":690,"y":372,"w":250,"h":66},{"ref":"mcp-confidential","x":980,"y":382,"w":248,"h":46},{"ref":"promoter","x":690,"y":500,"w":250,"h":60},{"ref":"tier-open","x":980,"y":505,"w":248,"h":50}],"edges":[{"from":"hermes-bridge","to":"route-chat","kind":"https"},{"from":"hermes-bridge","to":"route-conv","kind":"https"},{"from":"hermes-bridge","to":"route-upload","kind":"https"},{"from":"route-chat","to":"claude-cli","kind":"spawn"},{"from":"route-conv","to":"conv-store","kind":"rw"},{"from":"route-upload","to":"inbox-conf","kind":"rw","dashed":true,"label":"export → inbox"},{"from":"inbox-open","to":"pass-a","kind":"https"},{"from":"inbox-conf","to":"pass-b","kind":"https"},{"from":"pass-a","to":"mcp-vault","kind":"rw"},{"from":"pass-b","to":"mcp-confidential","kind":"rw"},{"from":"mcp-vault","to":"tier-open","kind":"rw","dashed":true},{"from":"pass-b","to":"promoter","kind":"spawn","label":"proposes"},{"from":"promoter","to":"tier-open","kind":"scan","dashed":true,"label":"clean only"}]},{"id":"L3","title":"Flows","mode":"flows","viewBox":"0 0 1280 720","blurb":"Follow a request end-to-end. Each surface takes a different door; all land on the one vault. Pick a flow."}],"flows":[{"id":"flow-chat","label":"Web chat","accent":"surface","steps":[{"label":"You","sub":"browser","kind":"person"},{"label":"Cloudflare Access","sub":"email one-time PIN","kind":"edge"},{"label":"Tunnel","sub":"outbound QUIC","kind":"edge"},{"label":"Hermes bridge","sub":":8787 · user ian","kind":"service"},{"label":"claude -p","sub":"Opus / xhigh · WebSearch","kind":"brain"},{"label":"mcp__vault","sub":"read all · write Hermes/","kind":"route"},{"label":"Vault + Conversations","sub":"note · reply saved to Confidential/","kind":"store"}]},{"id":"flow-code","label":"Claude Code (PC)","accent":"surface","steps":[{"label":"Claude Code","sub":"PC","kind":"surface"},{"label":"Cloudflare Access","sub":"service token","kind":"edge"},{"label":"Tunnel","sub":"vault.","kind":"edge"},{"label":"Vault MCP — shared","sub":":8788 · user hermes-mcp","kind":"service"},{"label":"Vault","sub":"read all · write Hermes/","kind":"store"}]},{"id":"flow-desktop","label":"Claude Desktop","accent":"surface","steps":[{"label":"Claude Desktop","sub":"PC · mcp-remote","kind":"surface"},{"label":"Cloudflare Access","sub":"own service token","kind":"edge"},{"label":"Tunnel","sub":"vault-desktop.","kind":"edge"},{"label":"Vault MCP — Desktop","sub":":8789 · user hermes-desktop","kind":"service"},{"label":"Vault","sub":"read all · write Hermes/Desktop/","kind":"store"}]},{"id":"flow-web","label":"claude.ai app","accent":"surface","steps":[{"label":"claude.ai","sub":"web / mobile","kind":"surface"},{"label":"OAuth 2.1","sub":"PKCE · short-TTL JWT","kind":"edge"},{"label":"Web OAuth layer","sub":":8791 · no Access app (#410)","kind":"service"},{"label":"Vault MCP — web","sub":":8790 · user hermes-web","kind":"service"},{"label":"Vault","sub":"read all · write Hermes/Web/","kind":"store"}]},{"id":"flow-sync","label":"Vault sync (5 min)","accent":"service","steps":[{"label":"Timer","sub":"every 5 min","kind":"service"},{"label":"vault-sync.sh","sub":"commit brain writes","kind":"service"},{"label":"git pull --rebase","sub":"autostash · halt on conflict","kind":"route"},{"label":"git push","sub":"origin main","kind":"route"},{"label":"GitHub","sub":"Open clear · Private git-crypt · Confidential never","kind":"external"}]},{"id":"flow-import","label":"Import pipeline","accent":"service","steps":[{"label":"Export drop","sub":"claude.ai / ChatGPT / Gemini","kind":"store"},{"label":"Confidential/_inbox","sub":"lands raw","kind":"store"},{"label":"import-pipeline.sh","sub":"unzip · split oversize","kind":"service"},{"label":"Librarian drain","sub":"Opus/xhigh · per-conversation","kind":"brain"},{"label":"Tier routing","sub":"Open / Private / Confidential","kind":"route"},{"label":"Notes + links","sub":"then firewall audit","kind":"store"}]}],"tables":{"doors":[{"surface":"Claude Code (PC)","hostname":"vault.example.com","port":8788,"user":"hermes-mcp","writeScope":"Hermes/","access":"Access · service token"},{"surface":"Claude Desktop (PC)","hostname":"vault-desktop.example.com","port":8789,"user":"hermes-desktop","writeScope":"Hermes/Desktop/","access":"Access · service token"},{"surface":"claude.ai web / mobile","hostname":"vault-web.example.com","port":8790,"user":"hermes-web","writeScope":"Hermes/Web/","access":"OAuth 2.1 on :8791 → proxies :8790 (no Access app)"},{"surface":"Web chat (browser)","hostname":"hermes.example.com","port":8787,"user":"ian","writeScope":"Hermes/ (+ Conversations)","access":"Access · email one-time PIN"}],"systemd":[{"unit":"hermes-bridge.service","kind":"service","runAs":"ian","type":"simple","schedule":"always-on / on-demand","purpose":"Hermes bridge — web doorway to the Hermes brain (Claude Code)"},{"unit":"hermes-confidential-mount.service","kind":"service","runAs":"ian","type":"oneshot","schedule":"always-on / on-demand","purpose":"Mount the encrypted Confidential tier (gocryptfs)"},{"unit":"hermes-firewall-audit.service","kind":"service","runAs":"ian","type":"oneshot","schedule":"01:30 America/New_York daily","purpose":"Hermes firewall audit — nightly tripwire over the synced (Open + Private) tiers"},{"unit":"hermes-librarian-drain.service","kind":"service","runAs":"ian","type":"oneshot","schedule":"on change: Hermes/Inbox","purpose":"Hermes Librarian — drain the inbox (burst)"},{"unit":"hermes-librarian.service","kind":"service","runAs":"ian","type":"oneshot","schedule":"every 2min · 03:30 UTC daily","purpose":"Hermes Librarian — nightly curation pass"},{"unit":"hermes-mcp-reap.service","kind":"service","runAs":"root","type":"oneshot","schedule":"01:30 America/New_York daily","purpose":"Hermes — reap leaked MCP filesystem children by restarting the remote connectors"},{"unit":"hermes-vault-desktop-mcp.service","kind":"service","runAs":"hermes-desktop","type":"simple","schedule":"always-on / on-demand","purpose":"Hermes vault MCP — Claude Desktop door (Streamable HTTP; writes confined to Hermes/Desktop/)"},{"unit":"hermes-vault-mcp.service","kind":"service","runAs":"hermes-mcp","type":"simple","schedule":"always-on / on-demand","purpose":"Hermes vault MCP — remote (Streamable HTTP) MCP server for the Obsidian vault"},{"unit":"hermes-vault-sync.service","kind":"service","runAs":"ian","type":"oneshot","schedule":"every 5min","purpose":"Hermes vault sync (commit brain writes, converge with GitHub)"},{"unit":"hermes-vault-web-mcp.service","kind":"service","runAs":"hermes-web","type":"simple","schedule":"always-on / on-demand","purpose":"Hermes vault MCP — claude.ai web door, inner MCP server (Streamable HTTP; writes confined to Hermes/Web/)"},{"unit":"hermes-vault-web-oauth.service","kind":"service","runAs":"hermes-web-oauth","type":"simple","schedule":"always-on / on-demand","purpose":"Hermes vault — claude.ai web door, PUBLIC OAuth 2.1 layer (:8791; proxies authed /mcp to :8790)"},{"unit":"hermes-firewall-audit.timer","kind":"timer","runAs":"—","type":"timer","schedule":"01:30 America/New_York daily","purpose":"→ hermes-firewall-audit"},{"unit":"hermes-librarian-poll.timer","kind":"timer","runAs":"—","type":"timer","schedule":"every 2min","purpose":"→ hermes-librarian"},{"unit":"hermes-librarian.timer","kind":"timer","runAs":"—","type":"timer","schedule":"03:30 UTC daily","purpose":"→ hermes-librarian"},{"unit":"hermes-mcp-reap.timer","kind":"timer","runAs":"—","type":"timer","schedule":"01:30 America/New_York daily","purpose":"→ hermes-mcp-reap"},{"unit":"hermes-vault-sync.timer","kind":"timer","runAs":"—","type":"timer","schedule":"every 5min","purpose":"→ hermes-vault-sync"},{"unit":"hermes-librarian.path","kind":"path","runAs":"—","type":"path","schedule":"watch Hermes/Inbox","purpose":"→ hermes-librarian-drain"}]},"legend":{"person":"Operator","surface":"Surface / client","edge":"Edge / gateway","brain":"Orchestrator (claude -p)","service":"On-box service","store":"Data store","tier":"Knowledge tier","route":"Route / component","external":"External service"}};
+
+if(!MODEL){
+  document.body.innerHTML =
+    '<div id="empty">This is the architecture-view template.<br>Generate the populated page with:<br>'+
+    '<code>node architecture/build.mjs</code></div>';
+} else { boot(); }
+
+function boot(){
+  const KIND_COLOR = {person:'--k-person',surface:'--k-surface',edge:'--k-edge',brain:'--k-brain',
+    service:'--k-service',store:'--k-store',route:'--k-route',external:'--k-external',tier:'--t-open'};
+  const TONE = {open:'--t-open',private:'--t-private',confidential:'--t-confidential'};
+  const cssv = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const colorFor = n => cssv(n && n.accent && TONE[n.accent] ? TONE[n.accent] : (KIND_COLOR[n&&n.kind]||'--k-external'));
+  const esc = s => String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const N = MODEL.nodes;
+
+  // ----- shell -----
+  const app = document.createElement('div');
+  app.style.cssText='display:flex;flex-direction:column;flex:1;min-height:0';
+  app.innerHTML = `
+    <header>
+      <div class="brand">
+        <div class="logo">HER<b>M</b>ES</div>
+        <div class="tag">${esc(MODEL.meta.tagline)}</div>
+      </div>
+      <div class="meta-chips">
+        <span class="chip"><b>${esc(MODEL.meta.host.server)}</b> · ${esc(MODEL.meta.host.region)}</span>
+        <span class="chip">${MODEL.meta.counts.services} services · ${MODEL.meta.counts.timers} timers · ${MODEL.meta.counts.doors} doors</span>
+        <span class="chip">${esc(MODEL.meta.generated.slice(0,10))}</span>
+        <span class="chip mode-${MODEL.meta.mode}">${MODEL.meta.mode==='public'?'PUBLIC · redacted':'internal'}</span>
+      </div>
+    </header>
+    <nav id="tabs"></nav>
+    <main id="main"></main>
+    <footer>
+      <span>Living architecture — generated from <b>deploy/</b> ground truth.</span>
+      <span>Regenerate: <code>node architecture/build.mjs</code></span>
+      <span style="margin-left:auto">${esc(MODEL.meta.repo||'')}</span>
+    </footer>`;
+  document.body.appendChild(app);
+
+  const tabsEl = app.querySelector('#tabs');
+  const mainEl = app.querySelector('#main');
+  const TABS = [...MODEL.levels.map(l=>({id:l.id,title:l.title,level:l})), {id:'REF',title:'Reference'}];
+  let cur = TABS[0];
+  let selected = null, hover = null, flowTimer = null, curFlow = MODEL.flows[0];
+
+  TABS.forEach((t,i)=>{
+    const b=document.createElement('button'); b.className='tab'; b.dataset.id=t.id;
+    b.innerHTML = (t.level?`<span class="n">${t.id}</span>`:'')+esc(t.title);
+    b.onclick=()=>{cur=t;selected=null;hover=null;render();};
+    tabsEl.appendChild(b);
+  });
+
+  // ----- geometry helpers -----
+  const rectOf = p => ({x:p.x,y:p.y,w:p.w,h:p.h,cx:p.x+p.w/2,cy:p.y+p.h/2});
+  function border(r,tx,ty){
+    const dx=tx-r.cx, dy=ty-r.cy;
+    if(dx===0&&dy===0) return {x:r.cx,y:r.cy};
+    const sx=dx?(r.w/2)/Math.abs(dx):Infinity, sy=dy?(r.h/2)/Math.abs(dy):Infinity;
+    const s=Math.min(sx,sy); return {x:r.cx+dx*s, y:r.cy+dy*s};
+  }
+  const EDGE_COLOR={uses:'--faint',https:'--k-surface',tunnel:'--k-edge',rw:'--k-service',
+    inference:'--k-brain',sync:'--k-store',mount:'--k-route',ops:'--k-external',scan:'--t-confidential',spawn:'--k-brain'};
+
+  // ----- graph level render -----
+  // The SVG is built ONCE per level; hover/selection only toggle CSS classes on the
+  // stable DOM. No repaint on hover -> clicks are robust and it stays smooth.
+  function renderGraph(level){
+    mainEl.innerHTML = `<div id="stagewrap"><div class="blurb">${esc(level.blurb)}</div><div id="stage"></div></div><aside id="panel"></aside>`;
+    const stage = mainEl.querySelector('#stage');
+    stage.innerHTML = buildSVG(level);
+    const svg = stage.querySelector('svg');
+    const apply = () => { applyHL(svg, level); panel(level); };
+    stage.addEventListener('mouseover', e=>{ const g=e.target.closest('.node'); const id=g?g.dataset.id:null; if(id!==hover){hover=id; apply();} });
+    stage.addEventListener('mouseleave', ()=>{ if(hover!==null){hover=null; apply();} });
+    // Select on node-click, deselect on empty-click. Non-toggling so a duplicate
+    // click event (some touch/synthetic inputs fire two) is idempotent, not a flip.
+    stage.addEventListener('click', e=>{ const g=e.target.closest('.node'); selected = g ? g.dataset.id : null; apply(); });
+    apply();
+  }
+
+  // Toggle highlight classes on the already-rendered SVG.
+  function applyHL(svg, level){
+    const hl = hover||selected;
+    const nb=new Set();
+    if(hl){ nb.add(hl); (level.edges||[]).forEach(e=>{ if(e.from===hl)nb.add(e.to); if(e.to===hl)nb.add(e.from); }); }
+    svg.classList.toggle('focusing', !!hl);
+    svg.querySelectorAll('.node').forEach(g=>{
+      const id=g.dataset.id;
+      g.classList.toggle('active', !hl || nb.has(id));
+      g.classList.toggle('sel', selected===id);
+    });
+    svg.querySelectorAll('.edge,.arrow,.edge-lbl').forEach(el=>{
+      el.classList.toggle('on', !!hl && (el.dataset.from===hl || el.dataset.to===hl));
+    });
+  }
+
+  function buildSVG(level){
+    const places={}; level.place.forEach(p=>places[p.ref]=rectOf(p));
+    const parts=[`<svg class="canvas" viewBox="${level.viewBox}" preserveAspectRatio="xMidYMid meet">`];
+    (level.frames||[]).forEach(f=>{
+      parts.push(`<rect class="frame-box" x="${f.x}" y="${f.y}" width="${f.w}" height="${f.h}" rx="14"/>`);
+      parts.push(`<text class="frame-lbl" x="${f.x+14}" y="${f.y+20}">${esc(f.label)}</text>`);
+    });
+    (level.dividers||[]).forEach(d=>{
+      parts.push(`<line class="divider" x1="${d.x+8}" y1="${d.y}" x2="${d.x+d.w-8}" y2="${d.y}"/>`);
+      parts.push(`<text class="divider-lbl" x="${d.x+d.w/2}" y="${d.y-6}" text-anchor="middle">${esc(d.label)}</text>`);
+    });
+    (level.edges||[]).forEach(e=>{
+      const a=places[e.from], b=places[e.to]; if(!a||!b) return;
+      const p1=border(a,b.cx,b.cy), p2=border(b,a.cx,a.cy);
+      const col = cssv(EDGE_COLOR[e.kind]||'--faint');
+      const da = `data-from="${e.from}" data-to="${e.to}"`;
+      const ang=Math.atan2(p2.y-p1.y,p2.x-p1.x), L=9, sp=0.42;
+      const a1x=p2.x-L*Math.cos(ang-sp), a1y=p2.y-L*Math.sin(ang-sp);
+      const a2x=p2.x-L*Math.cos(ang+sp), a2y=p2.y-L*Math.sin(ang+sp);
+      parts.push(`<path class="edge${e.dashed?' live':''}" ${da} d="M${p1.x.toFixed(1)} ${p1.y.toFixed(1)} L${p2.x.toFixed(1)} ${p2.y.toFixed(1)}" stroke="${col}" stroke-width="1.4"/>`);
+      parts.push(`<path class="arrow" ${da} d="M${p2.x.toFixed(1)} ${p2.y.toFixed(1)} L${a1x.toFixed(1)} ${a1y.toFixed(1)} L${a2x.toFixed(1)} ${a2y.toFixed(1)} Z" fill="${col}"/>`);
+      if(e.label){
+        const mx=(p1.x+p2.x)/2, my=(p1.y+p2.y)/2;
+        parts.push(`<text class="edge-lbl" ${da} x="${mx}" y="${my-4}" text-anchor="middle">${esc(e.label)}</text>`);
+      }
+    });
+    level.place.forEach(p=>{
+      const n=N[p.ref]; if(!n) return;
+      const r=places[p.ref], c=colorFor(n), tx=r.cx, hasSub=!!n.sub;
+      parts.push(`<g class="node" data-id="${p.ref}" style="--nc:${c}">`);
+      parts.push(`<rect class="box" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="10"/>`);
+      parts.push(`<rect class="accent" x="${r.x}" y="${r.y}" width="4.5" height="${r.h}" rx="2"/>`);
+      parts.push(`<text class="lbl" x="${tx}" y="${r.cy+(hasSub?-3:5)}" text-anchor="middle">${esc(n.label)}</text>`);
+      if(hasSub) parts.push(`<text class="sub" x="${tx}" y="${r.cy+13}" text-anchor="middle">${esc(n.sub)}</text>`);
+      if(n.port) parts.push(`<text class="port" x="${r.x+r.w-9}" y="${r.y+15}" text-anchor="end">:${n.port}</text>`);
+      parts.push(`</g>`);
+    });
+    parts.push(`</svg>`);
+    return parts.join('');
+  }
+
+  // ----- detail panel -----
+  function panel(level){
+    const el=mainEl.querySelector('#panel'); if(!el) return;
+    const focus = selected || hover;
+    if(focus && N[focus]){
+      const n=N[focus], c=colorFor(n);
+      const d=n.decision, dtitle=d&&MODEL.meta.decisions?MODEL.meta.decisions[d]:null;
+      const doorByService=(MODEL.tables.doors||[]).find(x=>x.port===n.port&&n.port);
+      const facts=[];
+      if(n.port) facts.push(['Port',`<code>:${n.port}</code>`]);
+      if(n.user) facts.push(['Runs as',`<code>${esc(n.user)}</code>`]);
+      if(n.type) facts.push(['Unit type',esc(n.type)]);
+      if(n.schedule) facts.push(['Trigger',esc(n.schedule)]);
+      if(doorByService&&doorByService.writeScope) facts.push(['Write scope',`<code>${esc(doorByService.writeScope)}</code>`]);
+      if(n.requires&&n.requires.length) facts.push(['Requires',n.requires.map(r=>esc(r)).join('<br>')]);
+      if(n.unitFile) facts.push(['Unit file',`<code>deploy/${esc(n.unitFile)}</code>`]);
+      if(n.execStart) facts.push(['ExecStart',`<code style="font-size:10.5px">${esc(n.execStart.length>120?n.execStart.slice(0,118)+'…':n.execStart)}</code>`]);
+      el.innerHTML=`
+        <div class="p-eyebrow">${esc(MODEL.legend[n.kind]||n.kind)}</div>
+        <div class="p-title"><span class="kdot" style="background:${c}"></span>${esc(n.label)}</div>
+        ${n.sub?`<div class="p-kind">${esc(n.sub)}</div>`:''}
+        <div class="p-desc">${esc(n.desc||n.parsedDescription||'')}</div>
+        ${facts.length?`<dl class="facts">${facts.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`:''}
+        ${dtitle?`<div class="why"><span class="d">${d}</span><p>${esc(dtitle)}</p></div>`:''}
+        <div class="hint">${selected===focus?'Pinned — click it again to unpin.':'Hovering — click to pin these details.'}</div>`;
+    } else {
+      const used=new Set(level.place.map(p=>N[p.ref]&&N[p.ref].kind).filter(Boolean));
+      el.innerHTML=`
+        <div class="p-eyebrow">${esc(level.id)} · ${esc(level.title)}</div>
+        <div class="p-title">${esc(level.title)}</div>
+        <div class="p-desc">${esc(level.blurb)}</div>
+        <div class="p-eyebrow" style="margin-top:6px">Legend</div>
+        <div class="legend">${[...used].map(k=>`<div class="row"><span class="kdot" style="background:${cssv(KIND_COLOR[k]||'--k-external')}"></span>${esc(MODEL.legend[k]||k)}</div>`).join('')}</div>
+        <div class="hint">Hover a node to trace its links · click to pin its details here.</div>`;
+    }
+  }
+
+  // ----- flows (L3) -----
+  function renderFlows(level){
+    mainEl.innerHTML=`<div id="stagewrap"><div class="blurb">${esc(level.blurb)}</div><div id="flows"></div></div><aside id="panel"></aside>`;
+    const host=mainEl.querySelector('#flows');
+    const pick=`<div class="flowpick">${MODEL.flows.map(f=>`<button class="fbtn${f===curFlow?' active':''}" data-id="${f.id}" style="${f===curFlow?`background:${cssv(KIND_COLOR[f.accent]||'--k-surface')}`:''}">${esc(f.label)}</button>`).join('')}</div>`;
+    const steps=curFlow.steps;
+    const chain=`<div class="chain" id="chain">${steps.map((s,i)=>{
+      const c=cssv(KIND_COLOR[s.kind]||'--k-external');
+      const card=`<div class="step" data-i="${i}" style="border-left-color:${c}"><div class="s-lbl">${esc(s.label)}</div><div class="s-sub">${esc(s.sub||'')}</div></div>`;
+      const conn=i<steps.length-1?`<div class="conn" data-c="${i}">→</div>`:'';
+      return card+conn;
+    }).join('')}</div>`;
+    host.innerHTML=pick+chain+`<div class="flow-foot">A request enters from the left and lands on the one vault at the right. Every surface differs only in its door.</div>`;
+    host.querySelectorAll('.fbtn').forEach(b=>b.onclick=()=>{curFlow=MODEL.flows.find(f=>f.id===b.dataset.id);renderFlows(level);});
+    // panel: flow summary
+    const el=mainEl.querySelector('#panel');
+    el.innerHTML=`<div class="p-eyebrow">Flow</div><div class="p-title"><span class="kdot" style="background:${cssv(KIND_COLOR[curFlow.accent]||'--k-surface')}"></span>${esc(curFlow.label)}</div>
+      <ol class="p-desc" style="padding-left:18px">${steps.map(s=>`<li><b style="color:var(--ink)">${esc(s.label)}</b> — ${esc(s.sub||'')}</li>`).join('')}</ol>`;
+    // travelling highlight
+    if(flowTimer) clearInterval(flowTimer);
+    let i=0; const cards=host.querySelectorAll('.step'), conns=host.querySelectorAll('.conn');
+    const tick=()=>{
+      cards.forEach((c,k)=>c.classList.toggle('on',k===i));
+      conns.forEach((c,k)=>c.classList.toggle('on',k===i-1));
+      i=(i+1)%(steps.length+1);
+    };
+    tick(); flowTimer=setInterval(tick,750);
+  }
+
+  // ----- reference tab -----
+  function renderReference(){
+    if(flowTimer) clearInterval(flowTimer);
+    const h=MODEL.meta.host;
+    const tiers=MODEL.tiers.map(t=>`<div class="tier-row"><span class="dot" style="background:${cssv(TONE[t.tone]||'--t-open')}"></span><div><b>${esc(t.label)} — <code style="font-size:11px">${esc(t.path)}</code></b>${esc(t.rule)}</div></div>`).join('');
+    const doors=MODEL.tables.doors.map(d=>`<tr><td>${esc(d.surface)}</td><td><code>${esc(d.hostname)}</code></td><td><code>:${esc(d.port)}</code></td><td><code>${esc(d.user)}</code></td><td><code>${esc(d.writeScope)}</code></td><td>${esc(d.access)}</td></tr>`).join('');
+    const sysColor={service:'--k-service',timer:'--k-store',path:'--k-route'};
+    const sys=MODEL.tables.systemd.map(s=>`<tr><td><code>${esc(s.unit)}</code></td><td><span class="pill" style="color:${cssv(sysColor[s.kind]||'--k-external')};border:1px solid ${cssv(sysColor[s.kind]||'--k-external')}33">${esc(s.kind)}</span></td><td>${esc(s.runAs)}</td><td>${esc(s.schedule)}</td><td>${esc(s.purpose||'')}</td></tr>`).join('');
+    mainEl.innerHTML=`<div id="reference">
+      <div class="ref-grid">
+        <div class="card"><h3>Host</h3><dl class="kv">
+          <dt>Provider</dt><dd>${esc(h.provider)}</dd>
+          <dt>Server</dt><dd>${esc(h.server)} — ${esc(h.specs)}</dd>
+          <dt>Region</dt><dd>${esc(h.region)}</dd>
+          <dt>OS</dt><dd>${esc(h.os)}</dd>
+          <dt>Network</dt><dd>${esc(h.posture)}</dd>
+          <dt>IP</dt><dd><code>${esc(MODEL.meta.boxIp||'—')}</code></dd>
+        </dl></div>
+        <div class="card"><h3>Knowledge tiers</h3>${tiers}</div>
+      </div>
+      <h2 class="ref">Doors matrix — one write-confined door per surface</h2>
+      <table><thead><tr><th>Surface</th><th>Hostname</th><th>Port</th><th>OS user</th><th>Write scope</th><th>Access</th></tr></thead><tbody>${doors}</tbody></table>
+      <h2 class="ref">systemd inventory — ${MODEL.meta.counts.services} services · ${MODEL.meta.counts.timers} timers · ${MODEL.meta.counts.paths} path</h2>
+      <table><thead><tr><th>Unit</th><th>Kind</th><th>Runs as</th><th>Schedule</th><th>Purpose</th></tr></thead><tbody>${sys}</tbody></table>
+    </div>`;
+  }
+
+  // ----- router -----
+  function render(){
+    if(flowTimer){clearInterval(flowTimer);flowTimer=null;}
+    tabsEl.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.id===cur.id));
+    if(cur.id==='REF'){ renderReference(); return; }
+    const lvl=cur.level;
+    if(lvl.mode==='flows') renderFlows(lvl); else renderGraph(lvl);
+  }
+  render();
+}
+</script>
+</body>
+</html>
